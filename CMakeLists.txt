@@ -169,7 +169,7 @@ if (HAVE_UNORDERED_MAP)
 endif ()
 
 
-set(BOOST_COMPONENTS system filesystem program_options)
+set(BOOST_COMPONENTS system filesystem program_options thread)
 if(WIN32)
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} locale)
 endif(WIN32)
@@ -561,6 +561,10 @@ endif(BUILD_NIFTEST)
 
 # Apps and tools
 add_subdirectory( apps/openmw )
+
+# Online components
+add_subdirectory( apps/mwo_masterserver )
+add_subdirectory( apps/mwo_shardserver )
 
 if (BUILD_BSATOOL)
   add_subdirectory( apps/bsatool )

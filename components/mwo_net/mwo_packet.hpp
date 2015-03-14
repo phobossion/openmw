@@ -22,7 +22,7 @@ namespace MWOnline
         enum Flag
         {
             Flag_Reliable = 1,      //< Reliable UDP packet
-            Flag_DiscardOld = 2,    //< In an UDP connection, when packets arrive out of order, setting this flag will effectively keep only the latest one
+            Flag_DiscardOld = 2     //< In an UDP connection, when packets arrive out of order, setting this flag will effectively keep only the latest one
         };
 
         Packet(const char* code, unsigned char flags);

@@ -4,6 +4,8 @@
 #include <MyGUI_InputManager.h>
 #include <MyGUI_ControllerManager.h>
 
+#include <openengine/misc/rng.hpp>
+
 #include <components/widgets/numericeditbox.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -343,7 +345,7 @@ namespace MWGui
             else
                 d = int(100 * (b - a) / a);
 
-            float clampedDisposition = std::max<float>(0,std::min<float>(MWBase::Environment::get().getMechanicsManager()->getDerivedDisposition(mPtr)
+            int clampedDisposition = std::max(0, std::min(MWBase::Environment::get().getMechanicsManager()->getDerivedDisposition(mPtr)
                 + MWBase::Environment::get().getDialogueManager()->getTemporaryDispositionChange(),100));
 
             const MWMechanics::CreatureStats &sellerStats = mPtr.getClass().getCreatureStats(mPtr);
@@ -365,7 +367,7 @@ namespace MWGui
             else
                 x += abs(int(npcTerm - pcTerm));
 
-            int roll = std::rand()%100 + 1;
+            int roll = OEngine::Misc::Rng::rollDice(100) + 1;
             if(roll > x || (mCurrentMerchantOffer < 0) != (mCurrentBalance < 0)) //trade refused
             {
                 MWBase::Environment::get().getWindowManager()->

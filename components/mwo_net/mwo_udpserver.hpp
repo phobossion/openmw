@@ -25,7 +25,6 @@ namespace MWOnline
         typedef ConnectionFactory<UDPConnection> CompatibleConnectionFactory;
 
         UDPServer(int port, int minPort, int maxPort, const CompatibleConnectionFactory* factory);
-        ~UDPServer();
 
         /// Start the server's routine
         /// This is a blocking call that should be run on separate thread

@@ -14,11 +14,6 @@ namespace MWOnline
     }
 
     //
-    UDPServer::~UDPServer()
-    {
-    }
-
-    //
     void UDPServer::Run()
     {
         using namespace Packets;
@@ -85,7 +80,7 @@ namespace MWOnline
         if (port == 0)
             throw new std::runtime_error("Server ran out of allocated ports!"); // [TODO] This should probably be handled gracefully in the upper scope
 
-        Endpoint localHost = Endpoint::Localhost(port);
+        Endpoint localHost(port);
 
         // Initialize the connection
         boost::shared_ptr<UDPConnection> connection(mConnectionFactory->CreateConnection(localHost, remoteHost, intro));

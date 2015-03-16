@@ -1,5 +1,5 @@
-#ifndef MWO_MASTERSERVER_CLIENTCONNECTION
-#define MWO_MASTERSERVER_CLIENTCONNECTION
+#ifndef MWO_MASTERSERVER_MASTERCONNECTION
+#define MWO_MASTERSERVER_MASTERCONNECTION
 
 #include <components/mwo_net/mwo_udpconnection.hpp>
 #include <components/mwo_net/mwo_connectionfactory.hpp>
@@ -9,10 +9,13 @@ namespace MWOnline
     namespace MasterServer
     {
         /// The connection to client handling all of the logic provided by this server
-        class ClientConnection : public UDPConnection
+        class MasterConnection : public UDPConnection
         {
         public:
-            ClientConnection(const Endpoint& local, const Endpoint& remote, const Packet* intro);
+            MasterConnection(const Endpoint& local, const Endpoint& remote, const Packet* intro);
+
+        private:
+            virtual bool ReceivePacket(const Datagram* packet, const Endpoint& from); // override
         };
 
         /// The connection factory used by our master server

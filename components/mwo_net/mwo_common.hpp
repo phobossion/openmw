@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <poll.h>
 
 #elif defined(WIN32)
 

@@ -1,6 +1,8 @@
 set(MWO_SHARDSERVER_FILES
 	mwo_shardserver.cpp
 	mwo_shardserver.hpp
+        mwo_shardtomasterconnection.cpp
+        mwo_shardtomasterconnection.hpp
 )
 
 source_group(apps\\mwo_shardserver FILES ${MWO_SHARDSERVER_FILES})

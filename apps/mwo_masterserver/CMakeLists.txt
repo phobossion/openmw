@@ -1,8 +1,8 @@
 set(MWO_MASTERSERVER_FILES
 	mwo_masterserver.cpp
 	mwo_masterserver.hpp
-        mwo_clientconnection.hpp
-        mwo_clientconnection.cpp
+        mwo_masterconnection.hpp
+        mwo_masterconnection.cpp
 )
 
 source_group(apps\\mwo_masterserver FILES ${MWO_MASTERSERVER_FILES})

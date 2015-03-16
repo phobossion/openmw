@@ -126,6 +126,7 @@ add_component_dir (version
 add_component_dir (mwo_net
     mwo_common mwo_service mwo_socket mwo_endpoint mwo_udpconnection mwo_udpserver
     mwo_packet mwo_corepackets mwo_connection mwo_connectionfactory mwo_udpclient
+    mwo_udpclientconnection
     )
 
 if(WIN32)

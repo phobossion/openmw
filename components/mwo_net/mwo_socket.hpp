@@ -32,6 +32,15 @@ namespace MWOnline
         /// Set the socket as non-blocking
         bool SetNonBlocking();
 
+        /// Check if the socket is open
+        bool IsOpen() const;
+
+        /// Check if the socket has any data waiting to be received
+        bool HasWaitingData() const;
+
+        /// Get the socket ID
+        int GetID() const { return mHandle; }
+
         // UDP API starts here
 
         /// Send data packet using this socket

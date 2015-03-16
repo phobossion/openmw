@@ -1,5 +1,5 @@
 #include "mwo_masterserver.hpp"
-#include "mwo_clientconnection.hpp"
+#include "mwo_masterconnection.hpp"
 
 namespace MWOnline
 {
@@ -61,11 +61,10 @@ int main(int /*argc*/, char** /*argv*/)
     signal(SIGINT, SignalHandler);
 #endif
 
-    MWOnline::MasterServer::MasterServer server;
-    serverPtr = &server;
-
     try
     {
+        MWOnline::MasterServer::MasterServer server;
+        serverPtr = &server;
         server.Run();
     }
     catch (const std::exception& ex)

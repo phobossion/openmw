@@ -68,6 +68,25 @@ namespace MWOnline
     }
 
     //
+    bool Socket::IsOpen() const
+    {
+        return mHandle > 0;
+    }
+
+    //
+    bool Socket::HasWaitingData() const
+    {
+        pollfd p;
+        p.fd = mHandle;
+        p.events = POLLIN;
+        p.revents = 0;
+
+        poll(&p, 1, 0);
+
+        return (p.revents & POLLIN);
+    }
+
+    //
     bool Socket::Bind(const Endpoint& endpoint)
     {
         int result = bind(mHandle, (const sockaddr*)&endpoint.mAddress, sizeof(sockaddr_in));

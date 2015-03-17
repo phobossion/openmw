@@ -26,7 +26,9 @@ namespace MWOnline
 
     //
     UDPConnection::UDPConnection(const Endpoint &local, const Endpoint& remote, const Packet* intro)
-        : Connection(SocketType_UDP, local, remote), mLastInPacketTime(GetTime()), mLastOutPacketTime(GetTime())
+        : Connection(SocketType_UDP, local, remote), mLastInPacketTime(GetTime()), mLastOutPacketTime(GetTime()),
+          mLocalSequenceNumber(1), mRemoteSequenceNumber(0), mRemoteSequenceBitfield(0), mLastPacketConfirmedToRemote(0),
+          mLastPacketConfirmationTime(GetTime())
     {
         // 'intro' will be null on client!!!
         if (intro)
@@ -111,6 +113,65 @@ namespace MWOnline
         // Update timestamp
         mLastInPacketTime = GetTime();
 
+        // Handle reliability
+        if (packet->Flags & Packet::Flag_Reliable)
+        {
+            boost::mutex::scoped_lock lock(mDataLock);
+
+            const ReliablePacket* rp = (const ReliablePacket*)packet;
+
+            // Take note of packet's sequence number - we'll have to send it back as confirmation
+            if (rp->SequenceNumber > mRemoteSequenceNumber)
+            {
+                // This is the most recent packet received
+                if (mRemoteSequenceNumber > 0)
+                {
+                    // Not the first packet received
+                    unsigned int diff = rp->SequenceNumber - mRemoteSequenceNumber;
+                    mRemoteSequenceBitfield <<= diff;
+                    mRemoteSequenceBitfield |= (0x01 << (diff - 1));
+                }
+                mRemoteSequenceNumber = rp->SequenceNumber;
+            }
+            else if (rp->SequenceNumber < mRemoteSequenceNumber)
+            {
+                unsigned int diff = mRemoteSequenceNumber - rp->SequenceNumber;
+                mRemoteSequenceBitfield |= (0x01 << (diff - 1));
+            }
+
+            // If we have many delivery confirmations pending, send back a response
+            if (mRemoteSequenceNumber - mLastPacketConfirmedToRemote > 8 || // [TODO] Magical number, should be based on some heuristic
+                GetTime() - mLastPacketConfirmationTime > 500)
+            {
+                POKE::ReliablePacket response;
+                SendReliablePacket(&response, sizeof(response));
+            }
+
+            // Check if the incoming packet contains response IDs of any packets awaiting confirmation
+            if (rp->Ack != 0)
+            {
+                for (int i = 0; i < 33; ++i)
+                {
+                    unsigned int ack = rp->Ack - i;
+                    if (i == 0 || (rp->AckBitfield & (0x01 << (i - 1))))
+                    {
+                        std::map<unsigned int, PacketData>::iterator it = mUndeliveredPackets.find(ack);
+                        if (it != mUndeliveredPackets.end())
+                        {
+                            // Packet was delivered!
+                            MWO_TRACE("[UDP Connection] Remote host " << from.ToString() << " confirmed delivery of packet ID " << ack <<
+                                      "(" << Packet::PacketCodeToName(((const Packet*)&it->second.Buffer)->Code) << ")");
+
+                            mUndeliveredPackets.erase(it);
+                        }
+                    }
+
+                    if (ack == 1)
+                        break; // There cannot be more packets in the map anyway
+                }
+            }
+        }
+
         // First check for special system packets
         if (INTR::ReliablePacket::IsValid(packet))
         {
@@ -122,15 +183,11 @@ namespace MWOnline
         }
         else if (ACPT::ReliablePacket::IsValid(packet))
         {
-            // [TODO] set the connection state to 'connected'
-
             // Callback to the user (client connections hook onto this)
             ConnectionAccepted((const ReliablePacket*)packet, from);
 
             return;
         }
-
-        // [TODO] handle reliability
 
         // Unknown packet, give the user a chance to react
         if (!ReceivePacket(packet, from))
@@ -160,7 +217,7 @@ namespace MWOnline
     }
 
     //
-    void UDPConnection::SendPacket(const Datagram* packet, int packetSize)
+    void UDPConnection::SendPacket(Datagram* packet, int packetSize)
     {
         boost::mutex::scoped_lock lock(mDataLock);
 
@@ -174,11 +231,19 @@ namespace MWOnline
 
 
     //
-    void UDPConnection::SendReliablePacket(const ReliablePacket* packet, int packetSize)
+    void UDPConnection::SendReliablePacket(ReliablePacket* packet, int packetSize)
     {
         boost::mutex::scoped_lock lock(mDataLock);
 
-        // [TODO] Add reliability fields
+        // Set local packet ID for confirmation
+        packet->SequenceNumber = mLocalSequenceNumber++;
+
+        // Confirm delivery of recent remote packets
+        packet->Ack = mRemoteSequenceNumber;
+        packet->AckBitfield = mRemoteSequenceBitfield;
+
+        mLastPacketConfirmedToRemote = mRemoteSequenceNumber;
+        mLastPacketConfirmationTime = GetTime();
 
         // Enqueue
         mOutboundQueue.push_back(PacketData());
@@ -186,6 +251,12 @@ namespace MWOnline
 
         memcpy(&data.Buffer, packet, packetSize);
         data.Size = packetSize;
+
+        // Store in cache for reliable packets
+        mUndeliveredPackets[packet->SequenceNumber] = PacketData();
+        PacketData& data2 = mUndeliveredPackets[packet->SequenceNumber];
+        memcpy(&data2.Buffer, packet, packetSize);
+        data2.Size = packetSize;
     }
 
     //

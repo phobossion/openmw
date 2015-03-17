@@ -6,6 +6,8 @@
 #include <boost/thread.hpp>
 
 #include <vector>
+#include <map>
+#include <set>
 
 namespace MWOnline
 {
@@ -23,11 +25,11 @@ namespace MWOnline
         virtual void Start(); // final
 
         /// Send an unreliable UDP datagram
-        void SendPacket(const Datagram* packet, int packetSize);
+        void SendPacket(Datagram* packet, int packetSize);
 
         /// Send a reliable UDP packet
         /// The connection will ensure that the packet arrives to the destination at least once
-        void SendReliablePacket(const ReliablePacket* packet, int packetSize);
+        void SendReliablePacket(ReliablePacket* packet, int packetSize);
 
     protected:
         /// User code hook for incoming packets
@@ -62,6 +64,21 @@ namespace MWOnline
         // Timestamps
         unsigned int mLastInPacketTime;
         unsigned int mLastOutPacketTime;
+
+        /// Local sequence number for packet reliability
+        unsigned int mLocalSequenceNumber;
+
+        /// Reliable packets that were not yet confirmed delivered
+        std::map<unsigned int, PacketData> mUndeliveredPackets;
+
+        /// Highest remote sequence number from received packets
+        unsigned int mRemoteSequenceNumber;
+        /// Bitfield used for packet confirmation
+        unsigned int mRemoteSequenceBitfield;
+        /// Last remote packet sequence number we have confirmed to the remote host
+        unsigned int mLastPacketConfirmedToRemote;
+        /// Time of last confirmation response
+        unsigned int mLastPacketConfirmationTime;
     };
 }
 

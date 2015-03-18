@@ -116,7 +116,7 @@ namespace MWOnline
         // Handle reliability
         if (packet->Flags & Packet::Flag_Reliable)
         {
-            boost::mutex::scoped_lock lock(mDataLock);
+            boost::recursive_mutex::scoped_lock lock(mDataLock);
 
             const ReliablePacket* rp = (const ReliablePacket*)packet;
 
@@ -138,37 +138,29 @@ namespace MWOnline
                 unsigned int diff = mRemoteSequenceNumber - rp->SequenceNumber;
                 mRemoteSequenceBitfield |= (0x01 << (diff - 1));
             }
+        }
 
-            // If we have many delivery confirmations pending, send back a response
-            if (mRemoteSequenceNumber - mLastPacketConfirmedToRemote > 8 || // [TODO] Magical number, should be based on some heuristic
-                GetTime() - mLastPacketConfirmationTime > 500)
+        // Check if the incoming packet contains response IDs of any packets awaiting confirmation
+        if (packet->Ack != 0)
+        {
+            for (int i = 0; i < 33; ++i)
             {
-                POKE::ReliablePacket response;
-                SendReliablePacket(&response, sizeof(response));
-            }
-
-            // Check if the incoming packet contains response IDs of any packets awaiting confirmation
-            if (rp->Ack != 0)
-            {
-                for (int i = 0; i < 33; ++i)
+                unsigned int ack = packet->Ack - i;
+                if (i == 0 || (packet->AckBitfield & (0x01 << (i - 1))))
                 {
-                    unsigned int ack = rp->Ack - i;
-                    if (i == 0 || (rp->AckBitfield & (0x01 << (i - 1))))
+                    std::map<unsigned int, PacketData>::iterator it = mUndeliveredPackets.find(ack);
+                    if (it != mUndeliveredPackets.end())
                     {
-                        std::map<unsigned int, PacketData>::iterator it = mUndeliveredPackets.find(ack);
-                        if (it != mUndeliveredPackets.end())
-                        {
-                            // Packet was delivered!
-                            MWO_TRACE("[UDP Connection] Remote host " << from.ToString() << " confirmed delivery of packet ID " << ack <<
-                                      "(" << Packet::PacketCodeToName(((const Packet*)&it->second.Buffer)->Code) << ")");
+                        // Packet was delivered!
+                        MWO_TRACE("[UDP Connection] Remote host " << from.ToString() << " confirmed delivery of packet ID " << ack <<
+                                  "(" << Packet::PacketCodeToName(((const Packet*)&it->second.Buffer)->Code) << ")");
 
-                            mUndeliveredPackets.erase(it);
-                        }
+                        mUndeliveredPackets.erase(it);
                     }
-
-                    if (ack == 1)
-                        break; // There cannot be more packets in the map anyway
                 }
+
+                if (ack == 1)
+                    break; // There cannot be more packets in the map anyway
             }
         }
 
@@ -199,7 +191,7 @@ namespace MWOnline
     //
     void UDPConnection::ProcessOutgoingData()
     {
-        boost::mutex::scoped_lock lock(mDataLock);
+        boost::recursive_mutex::scoped_lock lock(mDataLock);
 
         if (!mOutboundQueue.empty())
         {
@@ -214,12 +206,47 @@ namespace MWOnline
 
             mOutboundQueue.clear();
         }
+
+        // Also send all packets that might get lost
+        unsigned int time = GetTime();
+        static std::vector<unsigned int> lostPackets;
+        lostPackets.clear();
+        for (std::map<unsigned int, PacketData>::iterator it = mUndeliveredPackets.begin(); it != mUndeliveredPackets.end(); ++it)
+        {
+            if (time - it->second.Timestamp > 1000)
+            {
+                ReliablePacket* packet = (ReliablePacket*)&it->second.Buffer;
+
+                // The packet has been lost, most probably
+                MWO_TRACE("[UDP Connection] Packet ID " << packet->SequenceNumber << " (" << Packet::PacketCodeToName(packet->Code) << ") was lost, resending");
+
+                lostPackets.push_back(it->first);
+            }
+        }
+
+        for (std::vector<unsigned int>::iterator it = lostPackets.begin(); it != lostPackets.end(); ++it)
+        {
+            std::map<unsigned int, PacketData>::iterator i = mUndeliveredPackets.find(*it);
+
+            // Resend the packet
+            ReliablePacket* packet = (ReliablePacket*)&i->second.Buffer;
+            SendReliablePacket(packet, i->second.Size);
+
+            mUndeliveredPackets.erase(i);
+        }
     }
 
     //
     void UDPConnection::SendPacket(Datagram* packet, int packetSize)
     {
-        boost::mutex::scoped_lock lock(mDataLock);
+        boost::recursive_mutex::scoped_lock lock(mDataLock);
+
+        // Confirm delivery of recent remote packets
+        packet->Ack = mRemoteSequenceNumber;
+        packet->AckBitfield = mRemoteSequenceBitfield;
+
+        mLastPacketConfirmedToRemote = mRemoteSequenceNumber;
+        mLastPacketConfirmationTime = GetTime();
 
         // Just enqueue
         mOutboundQueue.push_back(PacketData());
@@ -233,7 +260,7 @@ namespace MWOnline
     //
     void UDPConnection::SendReliablePacket(ReliablePacket* packet, int packetSize)
     {
-        boost::mutex::scoped_lock lock(mDataLock);
+        boost::recursive_mutex::scoped_lock lock(mDataLock);
 
         // Set local packet ID for confirmation
         packet->SequenceNumber = mLocalSequenceNumber++;
@@ -257,6 +284,7 @@ namespace MWOnline
         PacketData& data2 = mUndeliveredPackets[packet->SequenceNumber];
         memcpy(&data2.Buffer, packet, packetSize);
         data2.Size = packetSize;
+        data2.Timestamp = GetTime();
     }
 
     //
@@ -276,7 +304,9 @@ namespace MWOnline
         else
         {
             // Remote host is on-line, we should make sure to respond!
-            if (time - mLastOutPacketTime > 1000)
+            if (time - mLastOutPacketTime > 1000 ||
+                mRemoteSequenceNumber - mLastPacketConfirmedToRemote > 8 || // [TODO] Magical number, should be based on some heuristic
+                time - mLastPacketConfirmationTime > 250) // [TODO] This effectively voids the first condition. We don't know atm if we even should be confirming anything
             {
                 // [TODO] we will want to send any packet receipts here as well
                 Packets::POKE::Datagram poke;

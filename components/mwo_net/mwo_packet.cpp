@@ -45,13 +45,13 @@ namespace MWOnline
 
     //
     Datagram::Datagram(const char *code, unsigned char flags)
-        : Packet(code, flags), SequenceNumber(0)
+        : Packet(code, flags), Ack(0), AckBitfield(0)
     {
     }
 
     //
     ReliablePacket::ReliablePacket(const char *code, unsigned char flags)
-        : Datagram(code, flags | Packet::Flag_Reliable), Ack(0), AckBitfield(0)
+        : Datagram(code, flags | Packet::Flag_Reliable), SequenceNumber(0)
     {
     }
 }

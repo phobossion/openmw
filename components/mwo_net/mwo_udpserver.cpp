@@ -64,7 +64,7 @@ namespace MWOnline
     //
     void UDPServer::StartConnection(const Endpoint &remoteHost, const Packet* intro)
     {
-        boost::mutex::scoped_lock lock(mDataLock);
+        boost::recursive_mutex::scoped_lock lock(mDataLock);
 
         // Assign a free port
         int port = 0;
@@ -113,7 +113,7 @@ namespace MWOnline
         connection->Start();
 
         // Getting here means the connection has finished, we can now unregister it
-        boost::mutex::scoped_lock lock(mDataLock);
+        boost::recursive_mutex::scoped_lock lock(mDataLock);
 
         // [TODO] store the thread in the pool
 

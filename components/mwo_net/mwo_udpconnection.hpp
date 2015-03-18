@@ -50,12 +50,13 @@ namespace MWOnline
         void ReceivePacketInternal(const Datagram* packet, const Endpoint& from);
 
         /// Data lock
-        boost::mutex mDataLock;
+        boost::recursive_mutex mDataLock;
 
         struct PacketData
         {
             char Buffer[4196]; // [TODO] max packet size???
             int Size;
+            unsigned int Timestamp;
         };
 
         /// Data queued to send

@@ -62,7 +62,7 @@ namespace MWOnline
         std::vector<boost::shared_ptr<boost::thread> > mThreadPool;
 
         /// Lock for our shared data
-        boost::mutex mDataLock;
+        boost::recursive_mutex mDataLock;
 
         /// Exit flag
         bool mExit;

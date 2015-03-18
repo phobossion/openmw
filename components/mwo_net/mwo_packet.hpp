@@ -40,17 +40,16 @@ namespace MWOnline
     /// This adds the sequence number to the packet so that we can detect out-of-date datagrams
     struct Datagram : public Packet
     {
-        unsigned int SequenceNumber;
+        unsigned int Ack;
+        unsigned int AckBitfield;
 
         Datagram(const char* code, unsigned char flags);
     };
 
     /// Base class for a "reliable" UDP packet
-    /// This adds the ack fields used to detect delivery of previous packets
     struct ReliablePacket : public Datagram
     {
-        unsigned int Ack;
-        unsigned int AckBitfield;
+        unsigned int SequenceNumber;
 
         ReliablePacket(const char* code, unsigned char flags);
     };

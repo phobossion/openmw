@@ -16,13 +16,14 @@ namespace MWOnline
         //
         void ShardServer::Run()
         {
+            while (true);
         }
 
         //
         void ShardServer::ConnectToMaster()
         {
             boost::shared_ptr<ShardToMasterConnection> connection(new ShardToMasterConnection(Endpoint(LocalPort), Endpoint(RemotePort)));
-            mClient.InitiateConnection(connection);
+            mClient.Connect(connection);
         }
     }
 }
